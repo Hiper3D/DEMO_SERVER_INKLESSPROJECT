@@ -1,31 +1,54 @@
+# default: &default
+#   adapter: postgresql
+#   encoding: unicode
+#   pool: 20
+#   sslmode: require
+#   connect_timeout: 10
+#   checkout_timeout: 10
+
+# development:
+#   <<: *default
+#   host: bcpostgressqlserver12.postgres.database.azure.com
+#   port: 5432
+#   database: Docuseal_dev
+#   username: Vertoxlabs
+#   password: "Vtx@mru@#5951#new"
+
+# test:
+#   <<: *default
+#   host: bcpostgressqlserver12.postgres.database.azure.com
+#   port: 5432
+#   database: Docuseal_test
+#   username: Vertoxlabs
+#   password: "Vtx@mru@#5951#new"
+
+# production:
+#   <<: *default
+#   host: bcpostgressqlserver12.postgres.database.azure.com
+#   port: 5432
+#   database: Docuseal_prod
+#   username: Vertoxlabs
+#   password: "Vtx@mru@#5951#new"
+
+
+
 default: &default
   adapter: postgresql
   encoding: unicode
-  pool: 20
-  sslmode: require
-  connect_timeout: 10
-  checkout_timeout: 10
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  username: <%= ENV['AZURE_DB_USERNAME'] || 'postgres' %>
+  password: <%= ENV['AZURE_DB_PASSWORD'] || ENV['POSTGRES_PASSWORD'] %>
+  host: <%= ENV['AZURE_DB_HOST'] || ENV['POSTGRES_HOST'] || 'localhost' %>
 
 development:
   <<: *default
-  host: bcpostgressqlserver12.postgres.database.azure.com
-  port: 5432
-  database: Docuseal_dev
-  username: Vertoxlabs
-  password: "Vtx@mru@#5951#new"
+  database: <%= ENV['AZURE_DB_NAME'] || 'docuseal_dev' %>
 
 test:
   <<: *default
-  host: bcpostgressqlserver12.postgres.database.azure.com
-  port: 5432
-  database: Docuseal_test
-  username: Vertoxlabs
-  password: "Vtx@mru@#5951#new"
+  database: <%= ENV['AZURE_DB_NAME'] || 'docuseal_test' %>
 
 production:
   <<: *default
-  host: bcpostgressqlserver12.postgres.database.azure.com
-  port: 5432
-  database: Docuseal_prod
-  username: Vertoxlabs
-  password: "Vtx@mru@#5951#new"
+  database: <%= ENV['AZURE_DB_NAME'] || 'docuseal' %>
+  sslmode: require

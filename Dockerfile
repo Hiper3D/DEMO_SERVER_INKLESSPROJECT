@@ -57,7 +57,8 @@ COPY --from=dependencies /app/node_modules /app/node_modules
 COPY . .
 
 # Clean asset cache and precompile assets
-RUN rm -rf tmp/cache public/assets && bundle exec rake assets:precompile
+# RUN rm -rf tmp/cache public/assets && bundle exec rake assets:precompile
+RUN SKIP_DATABASE_VALIDATION=true rm -rf tmp/cache public/assets && bundle exec rake assets:precompile
 
 # Expose port 3000 (default for Rails)
 EXPOSE 3000
