@@ -1,0 +1,12 @@
+bflsign.bc-pl.com {
+
+  # Caddy handles ACME challenges automatically
+  root * /srv
+  file_server
+
+  # Forward all requests to Rails
+  reverse_proxy app:3000 {
+    header_up Host {host}
+    header_up X-Forwarded-Proto https
+  }
+}

@@ -6,8 +6,6 @@ require 'active_support/core_ext/string'
 Rails.backtrace_cleaner.remove_silencers!
 
 Rails.application.configure do
-  # Settings specified here will take precedence over those in config/application.rb.
-
   # Code is not reloaded between requests.
   config.enable_reloading = false
 
@@ -16,27 +14,20 @@ Rails.application.configure do
     'Expires' => 1.year.from_now.to_fs(:rfc822)
   }
 
-  # Eager load code on boot. This eager loads most of Rails and
-  # your application in memory, allowing both threaded web servers
-  # and those relying on copy on write to perform better.
-  # Rake tasks automatically ignore this option for performance.
+  # Eager load code on boot.
   config.eager_load = true
 
   # Full error reports are disabled and caching is turned on.
   config.consider_all_requests_local       = false
   config.action_controller.perform_caching = true
 
+  # Background jobs
   config.active_job.queue_adapter = :sidekiq
 
-  # Ensures that a master key has been made available in either ENV["RAILS_MASTER_KEY"]
-  # or in config/master.key. This key is used to decrypt credentials (and other encrypted files).
-  # config.require_master_key = true
-
-  # Disable serving static files from the `/public` folder by default since
-  # Apache or NGINX already handles this.
+  # Serve static files
   config.public_file_server.enabled = true
 
-  # Store uploaded files on the local file system (see config/storage.yml for options).
+  # Active Storage
   config.active_storage.service =
     if ENV['S3_ATTACHMENTS_BUCKET'].present?
       :aws_s3
@@ -48,33 +39,22 @@ Rails.application.configure do
       :disk
     end
 
-  config.active_storage.resolve_model_to_route = :rails_storage_proxy if ENV['ACTIVE_STORAGE_PUBLIC'] != 'true'
-  config.active_storage.service_urls_expire_in = ENV.fetch('PRESIGNED_URLS_EXPIRE_MINUTES', '240').to_i.minutes
+  config.active_storage.resolve_model_to_route =
+    :rails_storage_proxy if ENV['ACTIVE_STORAGE_PUBLIC'] != 'true'
 
-  # Mount Action Cable outside main process or domain.
-  # config.action_cable.mount_path = nil
-  # config.action_cable.url = "wss://example.com/cable"
-  # config.action_cable.allowed_request_origins = [ "http://example.com", /http:\/\/example.*/ ]
+  config.active_storage.service_urls_expire_in =
+    ENV.fetch('PRESIGNED_URLS_EXPIRE_MINUTES', '240').to_i.minutes
 
-  # Assume all access to the app is happening through a SSL-terminating reverse proxy.
+  # SSL (behind Caddy / reverse proxy)
   config.assume_ssl = ENV['FORCE_SSL'].present? && ENV['FORCE_SSL'] != 'false'
+  config.force_ssl  = ENV['FORCE_SSL'].present? && ENV['FORCE_SSL'] != 'false'
 
-  # Force all access to the app over SSL, use Strict-Transport-Security, and use secure cookies.
-  config.force_ssl = ENV['FORCE_SSL'].present? && ENV['FORCE_SSL'] != 'false'
-
-  # Include generic and useful information about system operation, but avoid logging too much
-  # information to avoid inadvertent exposure of personally identifiable information (PII).
+  # Logging
   config.log_level = :info
-
-  # Prepend all log lines with the following tags.
-  config.log_tags = [:request_id]
-
+  config.log_tags  = [:request_id]
   config.cache_store = :memory_store
 
   config.action_mailer.perform_caching = false
-
-  # Ignore bad email addresses and do not raise email delivery errors.
-  # Set this to true and configure the email server for immediate delivery to raise delivery errors.
   config.action_mailer.raise_delivery_errors = false
 
   if ENV['SMTP_ADDRESS']
@@ -85,30 +65,28 @@ Rails.application.configure do
       domain: ENV.fetch('SMTP_DOMAIN', nil),
       user_name: ENV.fetch('SMTP_USERNAME', nil),
       password: ENV.fetch('SMTP_PASSWORD', nil),
-      authentication: ENV.fetch('SMTP_PASSWORD', nil).present? ? ENV.fetch('SMTP_AUTHENTICATION', 'plain') : nil,
+      authentication: ENV.fetch('SMTP_PASSWORD', nil).present? ?
+        ENV.fetch('SMTP_AUTHENTICATION', 'plain') : nil,
       enable_starttls_auto: ENV['SMTP_ENABLE_STARTTLS_AUTO'] != 'false'
     }.compact
   end
 
-  # Enable locale fallbacks for I18n (makes lookups for any locale fall back to
-  # the I18n.default_locale when a translation cannot be found).
+  # I18n
   config.i18n.fallbacks = true
 
-  # Don't log any deprecations.
+  # Deprecations
   config.active_support.report_deprecations = false
 
-  # Use default logging formatter so that PID and timestamp are not suppressed.
+  # Logger
   config.log_formatter = Logger::Formatter.new
-
-  # Use a different logger for distributed setups.
-  # require "syslog/logger"
-  # config.logger = ActiveSupport::TaggedLogging.new(Syslog::Logger.new "app-name")
-
   logger           = ActiveSupport::Logger.new($stdout)
   logger.formatter = config.log_formatter
   config.logger    = ActiveSupport::TaggedLogging.new(logger)
 
-  encryption_secret = ENV['ENCRYPTION_SECRET'].presence || Digest::SHA256.hexdigest(ENV['SECRET_KEY_BASE'].to_s)
+  # Encryption
+  encryption_secret =
+    ENV['ENCRYPTION_SECRET'].presence ||
+    Digest::SHA256.hexdigest(ENV['SECRET_KEY_BASE'].to_s)
 
   config.active_record.encryption = {
     primary_key: encryption_secret.first(32),
@@ -118,12 +96,12 @@ Rails.application.configure do
 
   ActiveRecord::Encryption.configure(**config.active_record.encryption)
 
-  # Do not dump schema after migrations.
+  # DB
   config.active_record.dump_schema_after_migration = false
 
+  # Lograge
   config.lograge.enabled = true
   config.lograge.base_controller_class = ['ActionController::API', 'ActionController::Base']
-
   config.lograge.formatter = ->(data) { data.except(:path, :location).to_json }
 
   config.lograge.custom_payload do |controller|
@@ -134,10 +112,11 @@ Rails.application.configure do
         {}
       end
 
-    resource = controller.instance_variable_get(:@submitter) ||
-               controller.instance_variable_get(:@submission) ||
-               controller.instance_variable_get(:@template) ||
-               controller.instance_variable_get(:@record)
+    resource =
+      controller.instance_variable_get(:@submitter) ||
+      controller.instance_variable_get(:@submission) ||
+      controller.instance_variable_get(:@template) ||
+      controller.instance_variable_get(:@record)
 
     current_user = controller.instance_variable_get(:@current_user)
 
@@ -150,16 +129,29 @@ Rails.application.configure do
         submission_id: params[:submission_id],
         submitter_id: params[:submitter_id],
         sig: (params[:signed_uuid] || params[:signed_id]).to_s.split('--').first,
-        slug: (params[:slug] ||
-               params[:submitter_slug] ||
-               params[:submission_slug] ||
-               params[:submit_form_slug] ||
-               params[:template_slug]).to_s.first(5)
+        slug: (
+          params[:slug] ||
+          params[:submitter_slug] ||
+          params[:submission_slug] ||
+          params[:submit_form_slug] ||
+          params[:template_slug]
+        ).to_s.first(5)
       }.compact_blank,
-      uid: current_user.try(:id),
-      aid: current_user.try(:account_id),
-      rid: resource.try(:id),
-      raid: resource.try(:account_id)
+      uid: current_user&.id,
+      aid: current_user&.account_id,
+      rid: resource&.id,
+      raid: resource&.account_id
     }
   end
+
+  # ==== FIX localhost redirect issue (FINAL) ====
+  config.action_controller.default_url_options = {
+    host: "bflsign.bc-pl.com",
+    protocol: "https"
+  }
+
+  config.action_mailer.default_url_options = {
+    host: "bflsign.bc-pl.com",
+    protocol: "https"
+  }
 end

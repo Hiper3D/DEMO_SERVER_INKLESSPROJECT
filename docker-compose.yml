@@ -124,26 +124,30 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: inkless_project2025-app
     ports:
       - "3000:3000"
     environment:
       RAILS_ENV: "production"
-      FORCE_SSL: "false"
-      # AZURE_DB_NAME: docuseal
-      # AZURE_DB_USERNAME: Vertoxlabs1987Bfl
-      # AZURE_DB_PASSWORD: Vtx@1987#2026#Bfl@
-      # AZURE_DB_HOST: vertoxxlabsdb.postgres.database.azure.com
+
+      # IMPORTANT: must be true when behind Caddy HTTPS
+      FORCE_SSL: "true"
+
+      # Used by DocuSeal / Rails for link generation
+      APP_URL: "https://bflsign.bc-pl.com"
+
       DATABASE_URL: "postgresql://Vertoxlabs1987Bfl:Vtx%401987%232026%23Bfl%40@vertoxlabsdb.postgres.database.azure.com:5432/docuseal"
       SECRET_KEY_BASE: "4dce4f0685aa709f2ae930895ccb9d479700732d9f9a659aa3264af6c49de6390fb81b68aeb54dba66e44f634a93aca38555f739d96db34fb8a5d65f9"
+
       RUN_MIGRATIONS: "true"
+
       REDIS_URL: "redis://redis:6379/0"
-      LOCAL_REDIS_URL: ""
+
       ALLOW_PUBLIC_SIGNUP: "true"
       DISABLE_SIGNUP: "false"
       SHOW_LOGIN_LINK_ON_SIGNUP: "true"
       SHOW_SIGNUP_LINK_ON_LOGIN: "true"
-    # volumes:
-    #   - ./public:/app/public
+
     depends_on:
       - redis
     command: >
@@ -152,18 +156,27 @@ services:
 
   redis:
     image: redis:7-alpine
+    container_name: inkless_project2025-redis
     restart: unless-stopped
 
   caddy:
     image: caddy:latest
-    command: caddy reverse-proxy --from ${HOST:-localhost} --to app:3000
+    container_name: inkless_project2025-caddy
+    volumes:
+      # Caddy configuration (YOU control this)
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile
+
+      # Caddy internal data (certificates, ACME, etc.)
+      - caddy_data:/data
+      - caddy_config:/config
     ports:
       - "80:80"
       - "443:443"
       - "443:443/udp"
-    environment:
-      HOST: "${HOST:-localhost}"
+    depends_on:
+      - app
     restart: unless-stopped
 
 volumes:
-  pg_data:
+  caddy_data:
+  caddy_config:
