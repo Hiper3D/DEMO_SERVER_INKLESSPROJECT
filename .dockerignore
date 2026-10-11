@@ -47,3 +47,5 @@ Procfile*
 /docuseal
 .DS_Store
 .env
+/data/
+/vendor/bundle

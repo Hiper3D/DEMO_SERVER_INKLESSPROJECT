@@ -1,0 +1,72 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: docuseal
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Missing POSTGRES_PASSWORD in .env}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d docuseal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - "${REDIS_PASSWORD:?Missing REDIS_PASSWORD in .env}"
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?Missing REDIS_PASSWORD in .env}"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'redis-cli --no-auth-warning -a "$$REDIS_PASSWORD" ping | grep -q PONG'
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      target: app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      RAILS_ENV: production
+      APP_URL: "${APP_URL:-http://localhost:3000}"
+      DATABASE_SSLMODE: "disable"
+      DATABASE_URL: "postgresql://postgres:${POSTGRES_PASSWORD:?Missing POSTGRES_PASSWORD in .env}@postgres:5432/docuseal?sslmode=disable"
+      SECRET_KEY_BASE: "${SECRET_KEY_BASE:?Missing SECRET_KEY_BASE in .env}"
+      POSTGRES_HOST: postgres
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Missing POSTGRES_PASSWORD in .env}"
+      REDIS_URL: "redis://default:${REDIS_PASSWORD:?Missing REDIS_PASSWORD in .env}@redis:6379/0"
+      SIDEKIQ_THREADS: "2"
+      RAILS_MIN_THREADS: "1"
+      RAILS_MAX_THREADS: "3"
+      WEB_CONCURRENCY: "0"
+      PORT: "3000"
+      WORKDIR: /data/docuseal
+      VIPS_MAX_COORD: "17000"
+      VIPS_BLOCK_UNTRUSTED: "1"
+    volumes:
+      - ./data:/data/docuseal
+
+volumes:
+  postgres_data:
+  redis_data:

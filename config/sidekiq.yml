@@ -8,5 +8,5 @@ queues:
   - [rollbar, 1]
 
 production:
-  :concurrency: 15
+  :concurrency: 2
   :max_retries: 3
