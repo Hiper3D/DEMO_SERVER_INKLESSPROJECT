@@ -73,18 +73,41 @@ unless a documented requirement specifically calls for that.
 
 ## Start ngrok automatically with systemd
 
-The file `deploy/systemd/ngrok.service.example` is a TEMPLATE only.
-It forwards ngrok to Nginx at `127.0.0.1:8080`; Nginx forwards to Rails
-at `127.0.0.1:3000`.
-It contains placeholders and is not ready to install unchanged.
+The file `deploy/systemd/ngrok.service.example` is a template, not a
+ready-to-install service. It forwards ngrok to Nginx at `127.0.0.1:8080`;
+Nginx forwards requests to Rails at `127.0.0.1:3000`.
 
-1. Copy it to `/etc/systemd/system/ngrok.service`.
-2. Replace `YOUR_LINUX_USERNAME`, the home/project path if different,
-   and `YOUR-NGROK-DOMAIN` with the actual values.
-3. Ensure the ngrok configuration is readable by that service user.
+For startup after a VM reboot, the deployment also includes:
+
+- `deploy/scripts/wait-for-inkless.sh` — waits for the application to
+  respond successfully through Nginx before allowing ngrok to start.
+- `deploy/systemd/ngrok.service.d/override.conf.example` — makes the
+  ngrok service depend on Docker and Nginx and runs the readiness script
+  before starting the tunnel.
+
+### Install the readiness check and override
+
+1. Install the readiness script:
+
+```bash
+sudo install -m 755 deploy/scripts/wait-for-inkless.sh /usr/local/bin/wait-for-inkless.sh
+```
+
+2. Install the systemd override:
+
+```bash
+sudo mkdir -p /etc/systemd/system/ngrok.service.d
+sudo install -m 644 deploy/systemd/ngrok.service.d/override.conf.example /etc/systemd/system/ngrok.service.d/override.conf
+```
+
+3. For a new installation, copy `deploy/systemd/ngrok.service.example`
+   to `/etc/systemd/system/ngrok.service` and replace its placeholders
+   with the actual Linux username, project path and ngrok domain. Do not
+   overwrite an existing working service without inspecting it first.
+4. Ensure the ngrok configuration is readable by the service user.
    Keep the authentication token in the local ngrok configuration file;
-   never add it to this repository.
-4. Reload systemd and enable/start the service:
+   never commit it to this repository.
+5. Reload systemd and enable/start the service:
 
 ```bash
 sudo systemctl daemon-reload
@@ -92,12 +115,22 @@ sudo systemctl enable --now ngrok.service
 systemctl is-enabled ngrok
 systemctl is-active ngrok
 sudo systemctl status ngrok --no-pager
+sudo systemctl cat ngrok
 sudo journalctl -u ngrok -b --no-pager
 ```
 
-Do not start a second ngrok process with the same reserved endpoint.
-The current deployment already has a systemd service; inspect it before
-replacing or reinstalling it.
+### Verify readiness and public access
+
+```bash
+sudo /usr/local/bin/wait-for-inkless.sh
+curl -sS -o /dev/null -w 'HTTP %{http_code}, %{time_total}s\n' --max-time 20 -H 'ngrok-skip-browser-warning: 1' https://YOUR-NGROK-DOMAIN/
+```
+
+Replace `YOUR-NGROK-DOMAIN` with the assigned public hostname. Do not
+start a second ngrok process using the same reserved endpoint.
+
+An HTTP 200 response confirms successful access at the time of testing;
+it does not guarantee continuous uptime.
 
 ## Verify public access
 
