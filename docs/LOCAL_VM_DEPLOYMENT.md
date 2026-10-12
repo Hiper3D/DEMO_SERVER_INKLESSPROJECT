@@ -18,12 +18,15 @@ Adjust this information if the actual environment changes.
 Internet browser
   -> ngrok public HTTPS endpoint
   -> ngrok agent inside the Ubuntu VM
+  -> Nginx reverse proxy on 127.0.0.1:8080
   -> application published on 127.0.0.1:3000
   -> app container
   -> PostgreSQL and Redis over the private Compose network
 
-HTTPS terminates at ngrok. This lab does not configure a separate Nginx,
-Apache or Caddy reverse-proxy service.
+HTTPS terminates at ngrok. Nginx listens only on loopback port 8080
+and forwards requests to the Rails application on loopback port 3000.
+The unused default Nginx site is disabled; no public port 80 listener
+is required for this tunnel-based setup.
 
 ## Network and SSH
 
@@ -57,7 +60,12 @@ sudo docker compose ps
 sudo docker compose logs --since=15m app
 curl -sS -o /dev/null \
   -w 'HTTP %{http_code}, %{time_total}s\n' \
-  --max-time 15 http://127.0.0.1:3000/
+  --max-time 120 http://127.0.0.1:8080/
+sudo nginx -t
+systemctl is-enabled nginx
+systemctl is-active nginx
+sudo ss -ltnp | grep -E ':(80|8080|3000)\b' || true
+sudo tail -n 20 /var/log/nginx/access.log
 ```
 
 Database and Redis ports should not be published to the host or Internet
@@ -66,6 +74,8 @@ unless a documented requirement specifically calls for that.
 ## Start ngrok automatically with systemd
 
 The file `deploy/systemd/ngrok.service.example` is a TEMPLATE only.
+It forwards ngrok to Nginx at `127.0.0.1:8080`; Nginx forwards to Rails
+at `127.0.0.1:3000`.
 It contains placeholders and is not ready to install unchanged.
 
 1. Copy it to `/etc/systemd/system/ngrok.service`.
